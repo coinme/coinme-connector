@@ -1,7 +1,7 @@
 {
     "label": "Coinbase",
     "nonConfigurables": {
-        "coinbaseBaseUrl": { "label": "Base URL", "value": "https://coinbase.com/api/v1" }
+        "coinbaseBaseUrl": { "label": "Base URL", "value": "https://api.coinbase.com/v1" }
     },
     "configurables": {
         "exchangePublicKey": { "label":"Coinbase Exchange Public Key" },
