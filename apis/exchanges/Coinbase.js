@@ -6,14 +6,14 @@ var crypto = require('crypto');
 var Coinbase = function (config) {
     this._request = request;
     this._config = config;
-};
 
-var publicClient = new CoinbaseExchange.PublicClient();
-var authedClient = new CoinbaseExchange.AuthenticatedClient(
-    this._config['coinbase.exchangePublicKey'],
-    this._config['coinbase.secret'],
-    this._config['coinbase.passphrase']
-);
+    this.publicClient = new CoinbaseExchange.PublicClient();
+    this.authedClient = new CoinbaseExchange.AuthenticatedClient(
+        this._config['coinbase.exchangePublicKey'],
+        this._config['coinbase.secret'],
+        this._config['coinbase.passphrase']
+    );
+};
 
 Coinbase.prototype._call = function (reqtype, endpoint, params, callback) {
 
@@ -60,6 +60,9 @@ Coinbase.prototype.buy = function (amount, price, callback) {
         'size' : amount,
         'product_id' : 'BTC-USD'
     };
+
+    var authedClient = this.authedClient;
+
     authedClient.buy(buyParams, function(err, result) {
         if(err) return callback('Coinbase buy error: ' + err);
 
@@ -84,6 +87,9 @@ Coinbase.prototype.sell = function (amount, price, callback) {
         'size' : amount,
         'product_id' : 'BTC-USD'
     };
+
+    var authedClient = this.authedClient;
+
     authedClient.sell(sellParams, function(err, result) {
         if(err) return callback('Coinbase sell error: ' + err);
 
@@ -104,7 +110,7 @@ Coinbase.prototype.sell = function (amount, price, callback) {
 // done
 Coinbase.prototype.getPrices = function (callback) {
 
-    publicClient.getProductTrades('BTC-USD', function(err, result) {
+    this.publicClient.getProductTrades('BTC-USD', function(err, result) {
         if(err) return callback('Coinbase get prices err: ' + err);
         
         callback(null, {
