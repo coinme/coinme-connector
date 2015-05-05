@@ -41,9 +41,9 @@ Coinbase.prototype._call = function (reqtype, endpoint, params, callback) {
     }
     requestOptions.headers = {
         'Content-Type': 'application/json',
-        'ACCESS-KEY': this._config['coinbase.coinbaseApiKey'],
-        'ACCESS-SIGNATURE': hmac,
-        'ACCESS-NONCE': timestamp
+        'ACCESS_KEY': this._config['coinbase.coinbaseApiKey'],
+        'ACCESS_SIGNATURE': hmac,
+        'ACCESS_NONCE': timestamp
     };
 
     this._request(requestOptions, function (err, response, body) {
