@@ -141,7 +141,7 @@ Coinbase.prototype.getBalance = function (callback) {
                 'fiat_available': fiat
             }); 
         });
-    });    
+    }.bind(this));    
 };
 // done
 Coinbase.prototype.getDepositAddress = function (callback) {
