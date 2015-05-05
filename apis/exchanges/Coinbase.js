@@ -48,6 +48,7 @@ Coinbase.prototype._call = function (reqtype, endpoint, params, callback) {
 
     this._request(requestOptions, function (err, response, body) {
         if (err) return callback('Coinbase GET error: ' + err);
+        console.warn( JSON.stringify( response ) );
         return callback(null, body);
     });
 };
