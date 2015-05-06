@@ -86,7 +86,7 @@ Coinbase.prototype.sell = function (amount, price, callback) {
         'product_id' : 'BTC-USD'
     };
 
-    this.authedClient.sell(sellParams, function(err, response, result) {
+    this.o.sell(sellParams, function(err, response, result) {
         if(err) return callback('Coinbase sell error: ' + err);
 
         this.authedClient.getOrder(result.id, function(err, response, order) {
@@ -212,7 +212,7 @@ Coinbase.prototype.userTransactions = function (callback) {
                 return callback(null, userTransactions);
             });
         });
-    });
+    }.bind(this));
 };
 
 // hard-coded
