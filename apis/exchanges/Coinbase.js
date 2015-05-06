@@ -7,7 +7,7 @@ var Coinbase = function (config) {
     this._request = request;
     this._config = config;
 
-    this.publicClient = new CoinbaseExchange.PublicClient( 'BTC-USD' );
+    this.publicClient = new CoinbaseExchange.PublicClient();
     this.authedClient = new CoinbaseExchange.AuthenticatedClient(
         this._config['coinbase.exchangePublicKey'],
         this._config['coinbase.secret'],
@@ -61,10 +61,12 @@ Coinbase.prototype.buy = function (amount, price, callback) {
         'product_id' : 'BTC-USD'
     };
 
-    this.authedClient.buy(buyParams, function(err, response, result) {
+    var self = this;
+
+    self.authedClient.buy(buyParams, function(err, response, result) {
         if(err) return callback('Coinbase buy error: ' + err);
 
-        this.authedClient.getOrder(result.id, function(err, response, order) {
+        self.authedClient.getOrder(result.id, function(err, response, order) {
             var fiat = parseFloat(order.size) * parseFloat(order.price);
             callback(null, {
                 'datetime': order.created_at,
@@ -76,7 +78,7 @@ Coinbase.prototype.buy = function (amount, price, callback) {
                 'order_id': result.id
             })
         });
-    }.bind(this));
+    });
 };
 // done
 Coinbase.prototype.sell = function (amount, price, callback) {
@@ -86,10 +88,12 @@ Coinbase.prototype.sell = function (amount, price, callback) {
         'product_id' : 'BTC-USD'
     };
 
-    this.authedClient.sell(sellParams, function(err, response, result) {
+    var self = this;
+
+    self.authedClient.sell(sellParams, function(err, response, result) {
         if(err) return callback('Coinbase sell error: ' + err);
 
-        this.authedClient.getOrder(result.id, function(err, response, order) {
+        self.authedClient.getOrder(result.id, function(err, response, order) {
             var fiat = parseFloat(order.size) * parseFloat(order.price);
             callback(null, {
                 'datetime': order.created_at,
@@ -101,17 +105,17 @@ Coinbase.prototype.sell = function (amount, price, callback) {
                 'order_id': result.id
             })
         });
-    }.bind(this));
+    });
 };
 // done
 Coinbase.prototype.getPrices = function (callback) {
 
-    this.publicClient.getProductOrderBook({ level: 1 }, function(err, response, body) {
+    this.publicClient.getProductOrderBook({ level: 1 }, function(err, response, result) {
         if(err) return callback('Coinbase get prices err: ' + err);
         
         callback(null, {
-            buyPrice : body.asks[0][0],
-            sellPrice : body.bids[0][0]
+            buyPrice : result.asks[0][0],
+            sellPrice : result.bids[0][0]
         });
     });
 };
@@ -120,13 +124,15 @@ Coinbase.prototype.getPrices = function (callback) {
 // done
 Coinbase.prototype.getBalance = function (callback) {
 
-    this._call('GET', '/accounts/' + this._config['coinbase.coinbaseAccountID'] + '/balance', function(err, balance) {
+    var self = this;
+
+    self._call('GET', '/accounts/' + self._config['coinbase.coinbaseAccountID'] + '/balance', function(err, balance) {
         if(err) callback("Coinbase get balance error: " + err);
 
         balance = JSON.parse(balance);
 
-        var url = this._config['coinbase.coinbaseBaseUrl'] + '/prices/sell';
-        this._request(url, function(err, res, body) {
+        var url = self._config['coinbase.coinbaseBaseUrl'] + '/prices/sell';
+        self._request(url, function(err, res, body) {
             if(err) callback("Coinbase get balance error: " + err);
 
             body = JSON.parse(body);
@@ -137,7 +143,7 @@ Coinbase.prototype.getBalance = function (callback) {
                 'fiat_available': fiat
             }); 
         });
-    }.bind(this));    
+    });    
 };
 // done
 Coinbase.prototype.getDepositAddress = function (callback) {
@@ -173,14 +179,16 @@ Coinbase.prototype.userTransactions = function (callback) {
     var url = '/transactions';
     var price;
 
-    this.getPrices(function(err, prices) {
+    var self = this;
+
+    self.getPrices(function(err, prices) {
         if(err) callback('Coinbase user transactions error: ' + err);
         price = prices.sellPrice;
 
-        this._call('GET', url, function(err, txns) {
+        self._call('GET', url, function(err, txns) {
             if(err) callback('Coinbase error in user transactions: ' + err);
             
-            var userTransactionsById = [];
+            var userTransactionsById = {};
             txns = JSON.parse(txns);
 
             async.each(txns.transactions, function (txn, eachCallback) {
@@ -200,20 +208,23 @@ Coinbase.prototype.userTransactions = function (callback) {
                 var txnIds = Object.keys(userTransactionsById);
                 var userTransactions = [];
                 for (var i = 0; i < txnIds.length; i++) {
+                    var id = txnIds[i];
+                    var txn = userTransactionsById[id];
+
                     userTransactions.push({
-                        id: txnIds[i],
-                        order_id: txnIds[i], 
-                        datetime: txnIds[i].datetime,
+                        id: id,
+                        order_id: id, 
+                        datetime: txn.datetime,
                         type: 'withdraw',
-                        fiat: txnIds[i].fiat,
-                        xbt: txnIds[i].xbt,
-                        fee: txnIds[i].fee
+                        fiat: txn.fiat,
+                        xbt: txn.xbt,
+                        fee: txn.fee
                     });
                 }
                 return callback(null, userTransactions);
             });
         });
-    }.bind(this));
+    });
 };
 
 // hard-coded
