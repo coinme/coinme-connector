@@ -203,7 +203,7 @@ Coinbase.prototype.userTransactions = function (callback) {
                     userTransactions.push({
                         id: txnIds[i],
                         order_id: txnIds[i], 
-                        datetime: new Date(txn.transaction.created_at),
+                        datetime: txnIds[i].datetime,
                         type: 'withdraw',
                         fiat: txnIds[i].fiat,
                         xbt: txnIds[i].xbt,
