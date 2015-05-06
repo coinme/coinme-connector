@@ -7,7 +7,7 @@ var Coinbase = function (config) {
     this._request = request;
     this._config = config;
 
-    this.publicClient = new CoinbaseExchange.PublicClient();
+    this.publicClient = new CoinbaseExchange.PublicClient( 'BTC-USD' );
     this.authedClient = new CoinbaseExchange.AuthenticatedClient(
         this._config['coinbase.exchangePublicKey'],
         this._config['coinbase.secret'],
@@ -61,12 +61,10 @@ Coinbase.prototype.buy = function (amount, price, callback) {
         'product_id' : 'BTC-USD'
     };
 
-    var authedClient = this.authedClient;
-
-    authedClient.buy(buyParams, function(err, result) {
+    this.authedClient.buy(buyParams, function(err, response, result) {
         if(err) return callback('Coinbase buy error: ' + err);
 
-        authedClient.getOrder(result.id, function(err, order) {
+        this.authedClient.getOrder(result.id, function(err, response, order) {
             var fiat = parseFloat(order.size) * parseFloat(order.price);
             callback(null, {
                 'datetime': order.created_at,
@@ -78,7 +76,7 @@ Coinbase.prototype.buy = function (amount, price, callback) {
                 'order_id': result.id
             })
         });
-    });
+    }.bind(this));
 };
 // done
 Coinbase.prototype.sell = function (amount, price, callback) {
@@ -88,12 +86,10 @@ Coinbase.prototype.sell = function (amount, price, callback) {
         'product_id' : 'BTC-USD'
     };
 
-    var authedClient = this.authedClient;
-
-    authedClient.sell(sellParams, function(err, result) {
+    this.authedClient.sell(sellParams, function(err, response, result) {
         if(err) return callback('Coinbase sell error: ' + err);
 
-        authedClient.getOrder(result.id, function(err, order) {
+        this.authedClient.getOrder(result.id, function(err, response, order) {
             var fiat = parseFloat(order.size) * parseFloat(order.price);
             callback(null, {
                 'datetime': order.created_at,
@@ -105,17 +101,17 @@ Coinbase.prototype.sell = function (amount, price, callback) {
                 'order_id': result.id
             })
         });
-    });
+    }.bind(this));
 };
 // done
 Coinbase.prototype.getPrices = function (callback) {
 
-    this.publicClient.getProductTrades('BTC-USD', function(err, result) {
+    this.publicClient.getProductOrderBook({ level: 1 }, function(err, response, body) {
         if(err) return callback('Coinbase get prices err: ' + err);
         
         callback(null, {
-            buyPrice : result[0].price,
-            sellPrice : result[1].price
+            buyPrice : body.asks[0][0],
+            sellPrice : body.bids[0][0]
         });
     });
 };
