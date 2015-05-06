@@ -86,7 +86,7 @@ Coinbase.prototype.sell = function (amount, price, callback) {
         'product_id' : 'BTC-USD'
     };
 
-    this.o.sell(sellParams, function(err, response, result) {
+    this.authedClient.sell(sellParams, function(err, response, result) {
         if(err) return callback('Coinbase sell error: ' + err);
 
         this.authedClient.getOrder(result.id, function(err, response, order) {
@@ -180,13 +180,13 @@ Coinbase.prototype.userTransactions = function (callback) {
         this._call('GET', url, function(err, txns) {
             if(err) callback('Coinbase error in user transactions: ' + err);
             
-            var userTransactionsByOrderId = [];
+            var userTransactionsById = [];
             txns = JSON.parse(txns);
 
             async.each(txns.transactions, function (txn, eachCallback) {
                 var amount = parseFloat(txn.transaction.amount.amount);
                 var fiat = amount * price;
-                userTransactionsByOrderId[order.id] = {
+                userTransactionsById[txn.transaction.id] = {
                     datetime: new Date(txn.transaction.created_at),
                     type: 'withdraw',
                     fiat: fiat,
@@ -197,11 +197,12 @@ Coinbase.prototype.userTransactions = function (callback) {
             }, function (err) {
                 if (err) return callback('Error processing trade history: ' + err);
 
-                var txnIds = Object.keys(userTransactionsByOrderId);
+                var txnIds = Object.keys(userTransactionsById);
                 var userTransactions = [];
                 for (var i = 0; i < txnIds.length; i++) {
                     userTransactions.push({
-                        order_id: txnIds[i],
+                        id: txnIds[i],
+                        order_id: txnIds[i], 
                         datetime: new Date(txn.transaction.created_at),
                         type: 'withdraw',
                         fiat: txnIds[i].fiat,
