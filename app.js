@@ -166,6 +166,9 @@ app.post('/configuration/toggle-autoconnector', ensureAuthenticated, configurati
 var logs = require('./routes/logs');
 app.get('/logs', ensureAuthenticated, logs.index);
 
+var emailNotification = require('./routes/email-notification');
+app.post('/email-notification', ensureAuthenticated, emailNotification.sendDayProfitsEmail);
+
 app.use(function (err, req, res, next) {
 
     switch (err.code) {

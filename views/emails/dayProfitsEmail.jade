@@ -1,0 +1,13 @@
+.body
+  table
+    thead
+      tr
+        th Name
+        th Buys Profits
+        th Sells Profits
+    tbody
+      each kiosk_profits in kiosks_profits
+        tr
+          td #{ kiosk_profits.name }
+          td #{ kiosk_profits.buys }
+          td #{ kiosk_profits.sells }
