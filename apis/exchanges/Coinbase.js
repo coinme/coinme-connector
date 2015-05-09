@@ -42,6 +42,23 @@ Coinbase.prototype._handleError = function ( error, method, callback ) {
 }
 
 
+Coinbase.prototype._formattedOrder = function ( order ) {
+
+  return {
+
+    'id': order.id,
+    'order_id': order.id,
+    'datetime': new Date( order.created_at ),
+    'type': order.side,
+    'fee': parseFloat( order.fill_fees ),
+    'fiat': parseFloat( order.size ) * parseFloat( order.price ),
+    'xbt': parseFloat( order.size )
+
+  }
+
+}
+
+
 Coinbase.prototype._placeOrder = function ( order_type, amount, price, callback ) {
 
   var self = this;
@@ -64,17 +81,9 @@ Coinbase.prototype._placeOrder = function ( order_type, amount, price, callback 
 
     if ( error ) return self._handleError( error, order_type, callback );
 
-    callback( null, {
+    var fiat = parseFloat( order.size ) * parseFloat( order.price );
 
-      'datetime': order.created_at,
-      'id': order.id,
-      'type': order.side,
-      'fiat': fiat,
-      'xbt': order.size,
-      'fee': order.fill_fees,
-      'order_id': result.id
-
-    } )
+    callback( null, self._formattedOrder( order ) );
 
   } );
 
@@ -183,39 +192,13 @@ Coinbase.prototype.userTransactions = function ( callback ) {
 
   var self = this;
 
-  async.parallel( {
-
-    prices: function ( callback ) { self.getPrices( callback ); },
-
-    transactions: function ( callback ) { self.coinbaseAccount.getTransactions( 1, 100, callback ); }
-
-  }, function ( error, result ) {
+  this.authedClient.getOrders( { limit: 100 }, function ( error, response, orders ) {
 
     if ( error ) return self._handleError( error, 'userTransactions', callback );
 
-    var sell_price = result.prices.sellPrice;
+    var result_orders = _.map( orders, self._formattedOrder );
 
-    var transactions = _.map( result.transactions, function ( transaction ) {
-
-      var btc = parseFloat( transaction.amount.amount );
-
-      var fiat = btc * sell_price;
-
-      return {
-
-        'id': transaction.id,
-        'order_id': transaction.id, 
-        'datetime': new Date( transaction.created_at ),
-        'type': 'withdraw',
-        'xbt': btc,
-        'fiat': fiat,
-        'fee': 0
-
-      }
-
-    } );
-
-    callback( null, transactions );
+    callback( null, result_orders );
 
   } );
 
