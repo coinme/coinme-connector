@@ -165,12 +165,10 @@ Coinbase.prototype.withdraw = function (amount, address, callback) {
     };
     this._call('POST', url, txn, function(err, res) {
 
-        console.warn( 'err: ' + err );
-        console.warn( 'res: ' + res );
-
         if(err) return callback('Coinbase withdraw error: ' + err);
 
-        res = JSON.parse(res);
+        if(res.error) return callback('Coinbase withdraw error: ' + res.error);
+
         if(res.success == true) {
             callback(null);
         }
