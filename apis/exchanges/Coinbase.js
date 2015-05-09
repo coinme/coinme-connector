@@ -122,26 +122,14 @@ Coinbase.prototype.getPrices = function ( callback ) {
 
 Coinbase.prototype.getBalance = function ( callback ) {
 
-  var self = this;
-
-  async.parallel( {
-
-    balance: function ( callback ) { self.coinbaseAccount.getBalance( callback ); },
-
-    prices: function ( callback ) { self.getPrices( callback ); }
-
-  }, function ( error, result ) {
+  this.coinbaseClient.getAccount( this.coinbaseAccount.id, function ( error, account ) {
 
     if ( error ) return handleError( error, 'getBalance', callback );
 
-    var btc_available = parseFloat( result.balance.amount );
-
-    var fiat_available = btc_available * result.prices.sellPrice;
-
     callback( null, {
 
-      'btc_available': btc_available,
-      'fiat_available': fiat_available
+      'btc_available': parseFloat( account.balance.amount ),
+      'fiat_available': parseFloat( account.native_balance.amount )
 
     } );
 
