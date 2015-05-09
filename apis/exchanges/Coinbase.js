@@ -127,13 +127,13 @@ Coinbase.prototype.getBalance = function (callback) {
     var self = this;
 
     self._call('GET', '/accounts/' + self._config['coinbase.coinbaseAccountID'] + '/balance', function(err, balance) {
-        if(err) callback("Coinbase get balance error: " + err);
+        if(err) return callback("Coinbase get balance error: " + err);
 
         balance = JSON.parse(balance);
 
         var url = self._config['coinbase.coinbaseBaseUrl'] + '/prices/sell';
         self._request(url, function(err, res, body) {
-            if(err) callback("Coinbase get balance error: " + err);
+            if(err) return callback("Coinbase get balance error: " + err);
 
             body = JSON.parse(body);
             var fiatrate = parseFloat(body.subtotal.amount);
@@ -165,7 +165,8 @@ Coinbase.prototype.withdraw = function (amount, address, callback) {
     };
     this._call('POST', url, txn, function(err, res) {
 
-        console.warn( res );
+        console.warn( 'err: ' + err );
+        console.warn( 'res: ' + res );
 
         if(err) return callback('Coinbase withdraw error: ' + err);
 
@@ -185,11 +186,11 @@ Coinbase.prototype.userTransactions = function (callback) {
     var self = this;
 
     self.getPrices(function(err, prices) {
-        if(err) callback('Coinbase user transactions error: ' + err);
+        if(err) return callback('Coinbase user transactions error: ' + err);
         price = prices.sellPrice;
 
         self._call('GET', url, function(err, txns) {
-            if(err) callback('Coinbase error in user transactions: ' + err);
+            if(err) return callback('Coinbase error in user transactions: ' + err);
             
             var userTransactionsById = {};
             txns = JSON.parse(txns);
