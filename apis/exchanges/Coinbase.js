@@ -1,255 +1,266 @@
+'use strict';
+
+var CoinbaseAPI = require('coinbase'); 
 var CoinbaseExchange = require('coinbase-exchange');
-var request = require('request');
 var async = require('async');
-var crypto = require('crypto');
+var _ = require( 'lodash' );
 
-var Coinbase = function (config) {
-    this._request = request;
-    this._config = config;
 
-    this.publicClient = new CoinbaseExchange.PublicClient();
-    this.authedClient = new CoinbaseExchange.AuthenticatedClient(
-        this._config['coinbase.exchangePublicKey'],
-        this._config['coinbase.secret'],
-        this._config['coinbase.passphrase']
-    );
-};
-
-Coinbase.prototype._call = function (reqtype, endpoint, params, callback) {
-
-    if(typeof callback === 'undefined') {
-        callback = params;
-        params = {};
-    }
+var Coinbase = function ( config ) {
     
-    var timestamp = Date.now();
-    var url = this._config['coinbase.coinbaseBaseUrl'] + endpoint;
-    var what;
-    if(Object.keys(params).length === 0) {
-      what = timestamp + url;
-    } else {
-      what = timestamp + url + JSON.stringify(params);
-    }
-    var hmac = crypto.createHmac('sha256', this._config['coinbase.coinbaseAPISecret']).update(what).digest('hex');
+  this.coinbaseClient = new CoinbaseAPI.Client( {
 
-    var requestOptions = {};
-    requestOptions.url = url;
-    requestOptions.method = reqtype;
-    if(reqtype == 'POST') {
-        requestOptions.json = true;
-        requestOptions.body = JSON.stringify(params);
-    }
-    requestOptions.headers = {
-        'Content-Type': 'application/json',
-        'ACCESS_KEY': this._config['coinbase.coinbaseAPIKey'],
-        'ACCESS_SIGNATURE': hmac,
-        'ACCESS_NONCE': timestamp
-    };
+    apiKey: config[ 'coinbase.coinbaseAPIKey' ],
+    apiSecret: config[ 'coinbase.coinbaseAPISecret' ]
 
-    this._request(requestOptions, function (err, response, body) {
-        if (err) return callback('Coinbase GET error: ' + err);
-        return callback(null, body);
-    });
+  } );
+
+  this.coinbaseAccount = new CoinbaseAPI.model.Account(
+
+    this.coinbaseClient,
+    { id: config[ 'coinbase.coinbaseAccountID' ] }
+
+  );
+
+  this.publicClient = new CoinbaseExchange.PublicClient();
+
+  this.authedClient = new CoinbaseExchange.AuthenticatedClient(
+
+    config[ 'coinbase.exchangePublicKey' ],
+    config[ 'coinbase.secret' ],
+    config[ 'coinbase.passphrase' ]
+
+  );
+
 };
 
-/* Coinbase Exchange API methods */
-// done
-Coinbase.prototype.buy = function (amount, price, callback) {
-    var buyParams = {
-        'price' : price,
-        'size' : amount,
-        'product_id' : 'BTC-USD'
-    };
 
-    var self = this;
+Coinbase.prototype._handleError = function ( error, method, callback ) {
 
-    self.authedClient.buy(buyParams, function(err, response, result) {
-        if(err) return callback('Coinbase buy error: ' + err);
+  callback( 'Coinbase #' + method + ' error: ' + error );
 
-        self.authedClient.getOrder(result.id, function(err, response, order) {
-            var fiat = parseFloat(order.size) * parseFloat(order.price);
-            callback(null, {
-                'datetime': order.created_at,
-                'id': order.id,
-                'type': order.side,
-                'fiat': fiat,
-                'xbt': order.size,
-                'fee': order.fill_fees,
-                'order_id': result.id
-            })
-        });
-    });
-};
-// done
-Coinbase.prototype.sell = function (amount, price, callback) {
-    var sellParams = {
-        'price' : price,
-        'size' : amount,
-        'product_id' : 'BTC-USD'
-    };
+}
 
-    var self = this;
 
-    self.authedClient.sell(sellParams, function(err, response, result) {
-        if(err) return callback('Coinbase sell error: ' + err);
+Coinbase.prototype._placeOrder = function ( order_type, amount, price, callback ) {
 
-        self.authedClient.getOrder(result.id, function(err, response, order) {
-            var fiat = parseFloat(order.size) * parseFloat(order.price);
-            callback(null, {
-                'datetime': order.created_at,
-                'id': order.id,
-                'type': order.side,
-                'fiat': fiat,
-                'xbt': order.size,
-                'fee': order.fill_fees,
-                'order_id': result.id
-            })
-        });
-    });
-};
-// done
-Coinbase.prototype.getPrices = function (callback) {
+  var self = this;
 
-    this.publicClient.getProductOrderBook({ level: 1 }, function(err, response, result) {
-        if(err) return callback('Coinbase get prices err: ' + err);
-        
-        callback(null, {
-            buyPrice : result.asks[0][0],
-            sellPrice : result.bids[0][0]
-        });
-    });
-};
+  async.waterfall( [
 
-/* Coinbase Wallet API methods */
-// done
-Coinbase.prototype.getBalance = function (callback) {
+    function ( callback ) {
 
-    var self = this;
+      self.authedClient[ order_type ]( { price: price, size: amount, product_id: 'BTC-USD' }, callback );
 
-    self._call('GET', '/accounts/' + self._config['coinbase.coinbaseAccountID'] + '/balance', function(err, balance) {
-        if(err) return callback("Coinbase get balance error: " + err);
-
-        balance = JSON.parse(balance);
-
-        var url = self._config['coinbase.coinbaseBaseUrl'] + '/prices/sell';
-        self._request(url, function(err, res, body) {
-            if(err) return callback("Coinbase get balance error: " + err);
-
-            body = JSON.parse(body);
-            var fiatrate = parseFloat(body.subtotal.amount);
-            fiat = fiatrate * parseFloat(balance.amount);
-            callback(null, {
-                'btc_available': balance.amount,
-                'fiat_available': fiat
-            }); 
-        });
-    });    
-};
-// done
-Coinbase.prototype.getDepositAddress = function (callback) {
-    var url = '/accounts/' + this._config['coinbase.coinbaseAccountID'] + '/address';
-    this._call('GET', url, function(err, addr) {
-        addr = JSON.parse(addr);
-        callback(null, {
-            'address': addr.address
-        });
-    });
-};
-// done
-Coinbase.prototype.withdraw = function (amount, address, callback) {
-    var url = '/transactions/send_money';
-    var txn = {
-        "to": address,
-        "amount": amount,
-        "notes": ""
-    };
-    this._call('POST', url, txn, function(err, res) {
-
-        if(err) return callback('Coinbase withdraw error: ' + err);
-
-        if(res.error) return callback('Coinbase withdraw error: ' + res.error);
-
-        if(res.success == true) {
-            callback(null);
-        }
-    });
-};
-
-/* Coinbase Exchange + Wallet account ID methods */
-// done
-Coinbase.prototype.userTransactions = function (callback) {
-    var url = '/transactions';
-    var price;
-
-    var self = this;
-
-    self.getPrices(function(err, prices) {
-        if(err) return callback('Coinbase user transactions error: ' + err);
-        price = prices.sellPrice;
-
-        self._call('GET', url, function(err, txns) {
-            if(err) return callback('Coinbase error in user transactions: ' + err);
-            
-            var userTransactionsById = {};
-            txns = JSON.parse(txns);
-
-            async.each(txns.transactions, function (txn, eachCallback) {
-                var amount = parseFloat(txn.transaction.amount.amount);
-                var fiat = amount * price;
-                userTransactionsById[txn.transaction.id] = {
-                    datetime: new Date(txn.transaction.created_at),
-                    type: 'withdraw',
-                    fiat: fiat,
-                    xbt: amount,
-                    fee: 0
-                };
-                return eachCallback();
-            }, function (err) {
-                if (err) return callback('Error processing trade history: ' + err);
-
-                var txnIds = Object.keys(userTransactionsById);
-                var userTransactions = [];
-                for (var i = 0; i < txnIds.length; i++) {
-                    var id = txnIds[i];
-                    var txn = userTransactionsById[id];
-
-                    userTransactions.push({
-                        id: id,
-                        order_id: id, 
-                        datetime: txn.datetime,
-                        type: 'withdraw',
-                        fiat: txn.fiat,
-                        xbt: txn.xbt,
-                        fee: txn.fee
-                    });
-                }
-                return callback(null, userTransactions);
-            });
-        });
-    });
-};
-
-// hard-coded
-Coinbase.prototype.getMinimumOrders = function (callback) {
-    return callback(null, { minimumBuy: 0.005, minimumSell: 0.005 });
-};
-// hard-coded
-Coinbase.prototype.getRequiredConfirmations = function () {
-    return 6;
-};
-
-var coinbase = null;
-module.exports = {
-
-    getInstance: function (config) {
-
-        if (coinbase === null) {
-            return new Coinbase(config);
-        }
-
-        return coinbase;
     },
-    clearInstance: function () {
-        coinbase = null;
+
+    function ( response, order, callback ) {
+
+      self.authedClient.getOrder( order.id, callback );
+
     }
+
+  ], function ( error, response, order ) {
+
+    if ( error ) return self._handleError( error, order_type, callback );
+
+    callback( null, {
+
+      'datetime': order.created_at,
+      'id': order.id,
+      'type': order.side,
+      'fiat': fiat,
+      'xbt': order.size,
+      'fee': order.fill_fees,
+      'order_id': result.id
+
+    } )
+
+  } );
+
+}
+
+
+Coinbase.prototype.buy = function ( amount, price, callback ) {
+
+  this._placeOrder( 'buy', amount, price, callback );
+
 };
+
+
+Coinbase.prototype.sell = function ( amount, price, callback ) {
+
+  this._placeOrder( 'sell', amount, price, callback );
+
+};
+
+
+Coinbase.prototype.getPrices = function ( callback ) {
+
+  var self = this;
+
+  self.publicClient.getProductOrderBook( { level: 1 }, function ( error, response, result ) {
+
+    if ( error ) return self._handleError( error, 'getPrices', callback );
+    
+    callback( null, {
+
+      'buyPrice': result.asks[ 0 ][ 0 ],
+      'sellPrice': result.bids[ 0 ][ 0 ]
+
+    });
+
+  });
+
+};
+
+
+Coinbase.prototype.getBalance = function ( callback ) {
+
+  var self = this;
+
+  async.parallel( {
+
+    balance: function ( callback ) { self.coinbaseAccount.getBalance( callback ); },
+
+    sell_price: function ( callback ) { self.coinbaseClient.getSellPrice( {}, callback ); }
+
+  }, function ( error, result ) {
+
+    if ( error ) return self._handleError( error, 'getBalance', callback );
+
+    var btc_available = parseFloat( result.balance.amount );
+
+    var fiat_available = btc_available * parseFloat( result.sell_price.subtotal.amount );
+
+    callback( null, {
+
+      'btc_available': btc_available,
+      'fiat_available': fiat_available
+
+    } );
+
+  } );
+
+};
+
+
+Coinbase.prototype.getDepositAddress = function ( callback ) {
+
+  var self = this;
+
+  self.coinbaseAccount.getAddress( function ( error, result ) {
+
+    if ( error ) return self._handleError( error, 'getDepositAddress', callback );
+
+    callback( null, {
+
+      'address': result.address
+
+    } );
+
+  } );
+
+};
+
+
+Coinbase.prototype.withdraw = function ( amount, address, callback ) {
+
+  var self = this;
+
+  self.coinbaseAccount.sendMoney( { to: address, amount: amount }, function ( error, transaction ) {
+
+    if ( error ) return self._handleError( error, 'withdraw', callback );
+
+    callback( null );
+
+  } );
+
+};
+
+
+Coinbase.prototype.userTransactions = function ( callback ) {
+
+  var self = this;
+
+  async.parallel( {
+
+    prices: function ( callback ) { self.getPrices( callback ); },
+
+    transactions: function ( callback ) { self.coinbaseAccount.getTransactions( 1, 100, callback ); }
+
+  }, function ( error, result ) {
+
+    if ( error ) return self._handleError( error, 'userTransactions', callback );
+
+    var sell_price = result.prices.sellPrice;
+
+    var transactions = _.map( result.transactions, function ( transaction ) {
+
+      var btc = parseFloat( transaction.amount.amount );
+
+      var fiat = btc * sell_price;
+
+      return {
+
+        'id': transaction.id,
+        'order_id': transaction.id, 
+        'datetime': new Date( transaction.created_at ),
+        'type': 'withdraw',
+        'xbt': btc,
+        'fiat': fiat,
+        'fee': 0
+
+      }
+
+    } );
+
+    callback( null, transactions );
+
+  } );
+
+};
+
+
+Coinbase.prototype.getMinimumOrders = function ( callback ) {
+
+  callback( null, { 
+
+    'minimumBuy': 0.005,
+    'minimumSell': 0.005 
+
+  } );
+
+};
+
+
+Coinbase.prototype.getRequiredConfirmations = function () {
+  
+  return 6;
+
+};
+
+
+module.exports = ( function ( Constructor ) {
+
+  var instance = null;
+
+  return {
+
+    getInstance: function ( config ) {
+
+      if ( instance === null ) instance = new Constructor( config );
+
+      return instance;
+
+    },
+
+    clearInstance: function () {
+
+      coinbase = null;
+
+    }
+
+  }
+
+} )( Coinbase );
