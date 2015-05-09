@@ -35,14 +35,14 @@ var Coinbase = function ( config ) {
 };
 
 
-Coinbase.prototype._handleError = function ( error, method, callback ) {
+var handleError = function ( error, method, callback ) {
 
   callback( 'Coinbase #' + method + ' error: ' + error );
 
-}
+};
 
 
-Coinbase.prototype._formattedOrder = function ( order ) {
+var formattedOrder = function ( order ) {
 
   return {
 
@@ -54,24 +54,24 @@ Coinbase.prototype._formattedOrder = function ( order ) {
     'fiat': parseFloat( order.size ) * parseFloat( order.price ),
     'xbt': parseFloat( order.size )
 
-  }
+  };
 
-}
+};
 
 
-Coinbase.prototype._placeOrder = function ( order_type, amount, price, callback ) {
-
-  var self = this;
+var placeOrder = function ( self, order_type, amount, price, callback ) {
 
   async.waterfall( [
 
     function ( callback ) {
 
-      self.authedClient[ order_type ]( { price: price, size: amount, product_id: 'BTC-USD' }, callback );
+      self.authedClient[ order_type ]( { size: amount, price: price, product_id: 'BTC-USD' }, callback );
 
     },
 
     function ( response, order, callback ) {
+
+      if ( order.message ) return callback( order.message );
 
       self.authedClient.getOrder( order.id, callback );
 
@@ -79,43 +79,39 @@ Coinbase.prototype._placeOrder = function ( order_type, amount, price, callback 
 
   ], function ( error, response, order ) {
 
-    if ( error ) return self._handleError( error, order_type, callback );
+    if ( error ) return handleError( error, order_type, callback );
 
-    var fiat = parseFloat( order.size ) * parseFloat( order.price );
-
-    callback( null, self._formattedOrder( order ) );
+    callback( null, formattedOrder( order ) );
 
   } );
 
-}
+};
 
 
 Coinbase.prototype.buy = function ( amount, price, callback ) {
 
-  this._placeOrder( 'buy', amount, price, callback );
+  placeOrder( this, 'buy', amount, price, callback );
 
 };
 
 
 Coinbase.prototype.sell = function ( amount, price, callback ) {
 
-  this._placeOrder( 'sell', amount, price, callback );
+  placeOrder( this, 'sell', amount, price, callback );
 
 };
 
 
 Coinbase.prototype.getPrices = function ( callback ) {
 
-  var self = this;
+  this.publicClient.getProductOrderBook( { level: 1 }, function ( error, response, result ) {
 
-  self.publicClient.getProductOrderBook( { level: 1 }, function ( error, response, result ) {
-
-    if ( error ) return self._handleError( error, 'getPrices', callback );
+    if ( error ) return handleError( error, 'getPrices', callback );
     
     callback( null, {
 
-      'buyPrice': result.asks[ 0 ][ 0 ],
-      'sellPrice': result.bids[ 0 ][ 0 ]
+      'buyPrice': parseFloat( result.asks[ 0 ][ 0 ] ),
+      'sellPrice': parseFloat( result.bids[ 0 ][ 0 ] )
 
     });
 
@@ -132,15 +128,15 @@ Coinbase.prototype.getBalance = function ( callback ) {
 
     balance: function ( callback ) { self.coinbaseAccount.getBalance( callback ); },
 
-    sell_price: function ( callback ) { self.coinbaseClient.getSellPrice( {}, callback ); }
+    prices: function ( callback ) { self.getPrices( callback ); }
 
   }, function ( error, result ) {
 
-    if ( error ) return self._handleError( error, 'getBalance', callback );
+    if ( error ) return handleError( error, 'getBalance', callback );
 
     var btc_available = parseFloat( result.balance.amount );
 
-    var fiat_available = btc_available * parseFloat( result.sell_price.subtotal.amount );
+    var fiat_available = btc_available * result.prices.sellPrice;
 
     callback( null, {
 
@@ -156,11 +152,9 @@ Coinbase.prototype.getBalance = function ( callback ) {
 
 Coinbase.prototype.getDepositAddress = function ( callback ) {
 
-  var self = this;
+  this.coinbaseAccount.getAddress( function ( error, result ) {
 
-  self.coinbaseAccount.getAddress( function ( error, result ) {
-
-    if ( error ) return self._handleError( error, 'getDepositAddress', callback );
+    if ( error ) return handleError( error, 'getDepositAddress', callback );
 
     callback( null, {
 
@@ -175,11 +169,9 @@ Coinbase.prototype.getDepositAddress = function ( callback ) {
 
 Coinbase.prototype.withdraw = function ( amount, address, callback ) {
 
-  var self = this;
+  this.coinbaseAccount.sendMoney( { amount: amount, to: address }, function ( error, transaction ) {
 
-  self.coinbaseAccount.sendMoney( { to: address, amount: amount }, function ( error, transaction ) {
-
-    if ( error ) return self._handleError( error, 'withdraw', callback );
+    if ( error ) return handleError( error, 'withdraw', callback );
 
     callback( null );
 
@@ -190,13 +182,11 @@ Coinbase.prototype.withdraw = function ( amount, address, callback ) {
 
 Coinbase.prototype.userTransactions = function ( callback ) {
 
-  var self = this;
-
   this.authedClient.getOrders( { limit: 100 }, function ( error, response, orders ) {
 
-    if ( error ) return self._handleError( error, 'userTransactions', callback );
+    if ( error ) return handleError( error, 'userTransactions', callback );
 
-    var result_orders = _.map( orders, self._formattedOrder );
+    var result_orders = _.map( orders, formattedOrder );
 
     callback( null, result_orders );
 
@@ -240,10 +230,10 @@ module.exports = ( function ( Constructor ) {
 
     clearInstance: function () {
 
-      coinbase = null;
+      instance = null;
 
     }
 
-  }
+  };
 
 } )( Coinbase );
