@@ -1,8 +1,8 @@
 'use strict';
 
-var CoinbaseAPI = require('coinbase'); 
-var CoinbaseExchange = require('coinbase-exchange');
-var async = require('async');
+var CoinbaseAPI = require( 'coinbase' ); 
+var CoinbaseExchange = require( 'coinbase-exchange' );
+var async = require( 'async' );
 var _ = require( 'lodash' );
 
 
@@ -22,9 +22,9 @@ var Coinbase = function ( config ) {
 
   );
 
-  this.publicClient = new CoinbaseExchange.PublicClient();
+  this.exchangePublic = new CoinbaseExchange.PublicClient();
 
-  this.authedClient = new CoinbaseExchange.AuthenticatedClient(
+  this.exchangeClient = new CoinbaseExchange.AuthenticatedClient(
 
     config[ 'coinbase.exchangePublicKey' ],
     config[ 'coinbase.secret' ],
@@ -71,7 +71,7 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
     function ( callback ) {
 
-      self.authedClient[ order_type ]( { size: amount, price: price, product_id: 'BTC-USD' }, callback );
+      self.exchangeClient[ order_type ]( { size: amount, price: price, product_id: 'BTC-USD' }, callback );
 
     },
 
@@ -79,7 +79,7 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
       if ( order.message ) return callback( order.message );
 
-      self.authedClient.getOrder( order.id, callback );
+      self.exchangeClient.getOrder( order.id, callback );
 
     }
 
@@ -87,7 +87,9 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
     if ( handleError( error, order_type, callback ) ) return;
 
-    callback( null, formattedOrder( order ) );
+    var formatted_order = formattedOrder( order );
+
+    callback( null, formatted_order );
 
   } );
 
@@ -110,7 +112,7 @@ Coinbase.prototype.sell = function ( amount, price, callback ) {
 
 Coinbase.prototype.getPrices = function ( callback ) {
 
-  this.publicClient.getProductOrderBook( { level: 1 }, function ( error, response, result ) {
+  this.exchangePublic.getProductOrderBook( { level: 1 }, function ( error, response, result ) {
 
     if ( handleError( error, 'getPrices', callback ) ) return;
     
@@ -128,14 +130,36 @@ Coinbase.prototype.getPrices = function ( callback ) {
 
 Coinbase.prototype.getBalance = function ( callback ) {
 
-  this.coinbaseClient.getAccount( this.coinbaseAccount.id, function ( error, account ) {
+  var self = this;
+
+  async.parallel( {
+
+    usual: function ( callback ) { 
+
+      self.coinbaseAccount.getBalance( callback );
+
+    },
+
+    exchange: function ( callback ) {
+
+      self.exchangeClient.getAccounts( function ( error, response, accounts ) {
+
+        if ( error ) return callback( error );
+
+        callback( null, accounts[ 0 ] )
+
+      } );
+
+    }
+
+  }, function ( error, accounts ) {
 
     if ( handleError( error, 'getBalance', callback ) ) return;
 
     callback( null, {
 
-      'btc_available': parseFloat( account.balance.amount ),
-      'fiat_available': parseFloat( account.native_balance.amount )
+      'btc_available': parseFloat( accounts.usual.amount ),
+      'fiat_available': parseFloat( accounts.exchange.available )
 
     } );
 
@@ -176,13 +200,13 @@ Coinbase.prototype.withdraw = function ( amount, address, callback ) {
 
 Coinbase.prototype.userTransactions = function ( callback ) {
 
-  this.authedClient.getOrders( { limit: 100 }, function ( error, response, orders ) {
+  this.exchangeClient.getOrders( { limit: 100 }, function ( error, response, orders ) {
 
     if ( handleError( error, 'userTransactions', callback ) ) return;
 
-    var result_orders = _.map( orders, formattedOrder );
+    var formatted_orders = _.map( orders, formattedOrder );
 
-    callback( null, result_orders );
+    callback( null, formatted_orders );
 
   } );
 
