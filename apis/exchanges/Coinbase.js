@@ -37,7 +37,13 @@ var Coinbase = function ( config ) {
 
 var handleError = function ( error, method, callback ) {
 
-  callback( 'Coinbase #' + method + ' error: ' + error );
+  if ( error ) {
+
+    callback( 'Coinbase #' + method + ' error: ' + error );
+
+    return true;
+
+  }
 
 };
 
@@ -79,7 +85,7 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
   ], function ( error, response, order ) {
 
-    if ( error ) return handleError( error, order_type, callback );
+    if ( handleError( error, order_type, callback ) ) return;
 
     callback( null, formattedOrder( order ) );
 
@@ -106,7 +112,7 @@ Coinbase.prototype.getPrices = function ( callback ) {
 
   this.publicClient.getProductOrderBook( { level: 1 }, function ( error, response, result ) {
 
-    if ( error ) return handleError( error, 'getPrices', callback );
+    if ( handleError( error, 'getPrices', callback ) ) return;
     
     callback( null, {
 
@@ -124,7 +130,7 @@ Coinbase.prototype.getBalance = function ( callback ) {
 
   this.coinbaseClient.getAccount( this.coinbaseAccount.id, function ( error, account ) {
 
-    if ( error ) return handleError( error, 'getBalance', callback );
+    if ( handleError( error, 'getBalance', callback ) ) return;
 
     callback( null, {
 
@@ -142,7 +148,7 @@ Coinbase.prototype.getDepositAddress = function ( callback ) {
 
   this.coinbaseAccount.getAddress( function ( error, result ) {
 
-    if ( error ) return handleError( error, 'getDepositAddress', callback );
+    if ( handleError( error, 'getDepositAddress', callback ) ) return;
 
     callback( null, {
 
@@ -159,7 +165,7 @@ Coinbase.prototype.withdraw = function ( amount, address, callback ) {
 
   this.coinbaseAccount.sendMoney( { amount: amount, to: address }, function ( error, transaction ) {
 
-    if ( error ) return handleError( error, 'withdraw', callback );
+    if ( handleError( error, 'withdraw', callback ) ) return;
 
     callback( null );
 
@@ -172,7 +178,7 @@ Coinbase.prototype.userTransactions = function ( callback ) {
 
   this.authedClient.getOrders( { limit: 100 }, function ( error, response, orders ) {
 
-    if ( error ) return handleError( error, 'userTransactions', callback );
+    if ( handleError( error, 'userTransactions', callback ) ) return;
 
     var result_orders = _.map( orders, formattedOrder );
 
@@ -187,8 +193,8 @@ Coinbase.prototype.getMinimumOrders = function ( callback ) {
 
   callback( null, { 
 
-    'minimumBuy': 0.005,
-    'minimumSell': 0.005 
+    'minimumBuy': 0.01,
+    'minimumSell': 0.01
 
   } );
 
