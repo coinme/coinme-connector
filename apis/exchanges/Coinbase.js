@@ -79,11 +79,23 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
       if ( order.message ) return callback( order.message );
 
-      self.exchangeClient.getOrder( order.id, callback );
+      async.retry( 10, function ( callback ) {
 
-    }
+        self.exchangeClient.getOrder( order.id, function ( error, response, order ) {
 
-  ], function ( error, response, order ) {
+          if ( error ) return callback( error );
+
+          if ( order.settled ) return callback( null, order );
+
+          setTimeout( _.partial( callback, 'not settled in 5 minutes' ), 30 * 1000 );
+
+        } );
+
+      }, callback );
+
+    },
+
+  ], function ( error, order ) {
 
     if ( handleError( error, 'placeOrder', callback ) ) return;
 
@@ -105,24 +117,6 @@ Coinbase.prototype.buy = function ( amount, price, callback ) {
     function ( callback ) {
 
       placeOrder( this, 'buy', amount, price, callback );
-
-    },
-
-    function ( order, callback ) {
-
-      async.retry( 10, function ( callback ) {
-
-        self.exchangeClient.getOrder( order.id, function ( error, response, body ) {
-
-          if ( error ) return callback( error );
-
-          if ( body.settled ) return callback( null, order );
-
-          setTimeout( _.partial( callback, 'not settled' ), 30 * 1000 );
-
-        } );
-
-      }, callback );
 
     },
 
@@ -212,10 +206,9 @@ Coinbase.prototype.getBalance = function ( callback ) {
 
         if ( error ) return callback( error );
 
-        console.log( 'exchange accounts:' );
-        console.log( accounts );
+        var fiat_account = _.find( accounts, { currency: 'USD' } );
 
-        callback( null, accounts[ 0 ] )
+        callback( null, fiat_account );
 
       } );
 
