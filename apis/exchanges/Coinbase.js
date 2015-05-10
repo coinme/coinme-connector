@@ -85,7 +85,7 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
   ], function ( error, response, order ) {
 
-    if ( handleError( error, order_type, callback ) ) return;
+    if ( handleError( error, 'placeOrder', callback ) ) return;
 
     var formatted_order = formattedOrder( order );
 
@@ -98,14 +98,80 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
 Coinbase.prototype.buy = function ( amount, price, callback ) {
 
-  placeOrder( this, 'buy', amount, price, callback );
+  var self = this;
+
+  async.waterfall( [
+
+    function ( callback ) {
+
+      placeOrder( this, 'buy', amount, price, callback );
+
+    },
+
+    function ( order, callback ) {
+
+      async.retry( 10, function ( callback ) {
+
+        self.exchangeClient.getOrder( order.id, function ( error, response, body ) {
+
+          if ( error ) return callback( error );
+
+          if ( body.settled ) return callback( null, order );
+
+          setTimeout( _.partial( callback, 'not settled' ), 30 * 1000 );
+
+        } );
+
+      }, callback );
+
+    },
+
+    function ( order, callback ) {
+
+      self.exchangeClient.withdraw( { amount: amount, coinbase_account_id: self.coinbaseAccount.id }, function ( error ) {
+
+        callback( error, order );
+
+      } );
+
+    }
+
+  ], function ( error, order ) {
+
+    if ( handleError( error, 'buy', callback ) ) return;
+
+    callback( null, order );
+
+  } );
 
 };
 
 
 Coinbase.prototype.sell = function ( amount, price, callback ) {
 
-  placeOrder( this, 'sell', amount, price, callback );
+  var self = this;
+
+  async.waterfall( [
+
+    function ( callback ) {
+
+      self.exchangeClient.deposit( { amount: amount, coinbase_account_id: self.coinbaseAccount.id }, callback );
+
+    },
+
+    function ( response, body, callback ) {
+
+      placeOrder( self, 'sell', amount, price, callback );
+
+    }
+
+  ], function ( error, order ) {
+
+    if ( handleError( error, 'sell', callback ) ) return;
+
+    callback( null, order );
+
+  } );
 
 };
 
@@ -121,9 +187,9 @@ Coinbase.prototype.getPrices = function ( callback ) {
       'buyPrice': parseFloat( result.asks[ 0 ][ 0 ] ),
       'sellPrice': parseFloat( result.bids[ 0 ][ 0 ] )
 
-    });
+    } );
 
-  });
+  } );
 
 };
 
