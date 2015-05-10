@@ -212,6 +212,9 @@ Coinbase.prototype.getBalance = function ( callback ) {
 
         if ( error ) return callback( error );
 
+        console.log( 'exchange accounts:' );
+        console.log( accounts );
+
         callback( null, accounts[ 0 ] )
 
       } );
