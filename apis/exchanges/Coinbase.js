@@ -118,7 +118,7 @@ Coinbase.prototype.buy = function ( amount, price, callback ) {
 
     function ( callback ) {
 
-      placeOrder( this, 'buy', amount, price, callback );
+      placeOrder( self, 'buy', amount, price, callback );
 
     },
 
