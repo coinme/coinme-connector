@@ -87,6 +87,8 @@ var placeOrder = function ( self, order_type, amount, price, callback ) {
 
           if ( order.settled ) return callback( null, order );
 
+          console.log( 'waiting for order settling' );
+
           setTimeout( _.partial( callback, 'not settled in 5 minutes' ), 30 * 1000 );
 
         } );
