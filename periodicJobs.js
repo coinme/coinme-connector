@@ -10,7 +10,9 @@ var intervalId;
 var AUTOCONNECTOR_INTERVAL = 60000;
 
 var autoconnectorRunErrorHandler = function (err) {
-    if (err) return console.error('Autoconnector run error: ' + err);
+    if (err) {
+        return console.error('Autoconnector run error: ' + err);
+    }
 };
 
 exports.batchProcess = function (callback) {
@@ -28,29 +30,30 @@ exports.runAutoconnector = function (errorHandler) {
 };
 
 exports.startInterval = function () {
-
-    console.log('starting periodic jobs');
-    intervalId = setInterval(function () {
-
-        var randomNumber = Math.ceil((Math.random() * 10));
-
-        // most of the time, run the autoconnector
-        if (randomNumber > 2) {
-            console.log('running autoconnector...');
-            exports.runAutoconnector();
-        } else if (randomNumber == 2) {
-            console.log('running batch process...');
-            // but sometimes, do the batch rollup
-            exports.batchProcess();
-        } else {
-            // and sometimes fill partials
-            console.log('filling partials...');
-            partialFiller.run(function (err) {
-                if (err) console.error('Partial filling error: ' + err);
-            });
-        }
-
-    }, AUTOCONNECTOR_INTERVAL);
+    console.log("startInterval was skipped");
+    //console.log('starting periodic jobs');
+    //intervalId = setInterval(function () {
+    //
+    //    var randomNumber = Math.ceil((Math.random() * 10));
+    //
+    //    // most of the time, run the autoconnector
+    //    if (randomNumber > 2) {
+    //        console.log('running autoconnector...');
+    //        exports.runAutoconnector();
+    //    } else if (randomNumber == 2) {
+    //        console.log('running batch process...');
+    //        // but sometimes, do the batch rollup
+    //        exports.batchProcess();
+    //    } else {
+    //        // and sometimes fill partials
+    //        console.log('filling partials...');
+    //
+    //        partialFiller.run(function (err) {
+    //            if (err) console.error('Partial filling error: ' + err);
+    //        });
+    //    }
+    //
+    //}, AUTOCONNECTOR_INTERVAL);
 };
 
 exports.stopInterval = function () {
